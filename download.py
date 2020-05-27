@@ -17,8 +17,8 @@ ANALYSIS_SLICE_MULTIPLIER = 36
 ANALYSIS_FREQUENCY_DAYS = 365
 
 # The amount of historical analysis blocks to compute. With the default frequency of 365 days and
-# start date of today, this corresponds to the preceding 5 years.
-ANALYSIS_BLOCK_COUNT = 5
+# start date of today, this corresponds to the preceding 2 years.
+ANALYSIS_BLOCK_COUNT = 2
 
 # The time from which to begin the analysis
 ANALYSIS_START_DATE = datetime.now(timezone.utc)
@@ -56,7 +56,7 @@ def download_date(date, gd):
   # Don't pointlessly re-download data
   if not os.path.exists(out_path):
     try:
-      # Download every 15 minute segment for every day, not just the latest
+      # Download every 15 minute segment for every day, not just the latest (very slow...)
       data = gd.Search(formatted, table='events', coverage=True)
       data.to_csv(out_path, encoding='utf-8', index=False)
     except Exception as e:
@@ -85,5 +85,5 @@ def download_all():
   print('Download complete')
 
 if __name__ == '__main__':
-  # Time to download approx 30 mins (i7-4771, 200 MB internet)
+  # Time to download approx 2 hours – around 25 GB(!) when downloaded
   download_all()
