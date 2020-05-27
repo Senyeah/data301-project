@@ -47,7 +47,7 @@ GDELT_FILE_PREFIX = 'gdelt_events_'
 GDELT_OUTPUT_DIRECTORY = 'gdelt_download'
 
 # How many GDELT event files to download in parallel
-GDELT_DOWNLOAD_WORKERS = 8
+GDELT_DOWNLOAD_WORKERS = os.cpu_count()
 
 def download_date(date, gd):
   formatted = date.strftime('%Y%m%d')
@@ -55,8 +55,12 @@ def download_date(date, gd):
 
   # Don't pointlessly re-download data
   if not os.path.exists(out_path):
-    data = gd.Search(formatted, table='events', coverage=False)
-    data.to_csv(out_path, encoding='utf-8', index=False)
+    try:
+      # Download every 15 minute segment for every day, not just the latest
+      data = gd.Search(formatted, table='events', coverage=True)
+      data.to_csv(out_path, encoding='utf-8', index=False)
+    except Exception as e:
+      print(f'Error downloading {formatted}, exception {e}')
 
 def download_all():
   # Stop polluting the working directory by creating an download folder
@@ -65,12 +69,12 @@ def download_all():
 
   gd = gdelt.gdelt(version=2)
 
-  # Parallelize the download, as lots of it is needed
+  # Parallelize the download, as lots of event data is needed
   with thread.ThreadPoolExecutor(max_workers=GDELT_DOWNLOAD_WORKERS) as executor:
     # Pull every date out of the slice...
     dates = (date for slice, _ in analysis_dates() for date in slice)
 
-    # Log how many are to be downloaded
+    # ...log how many are to be downloaded
     download_cnt = ANALYSIS_SLICE_PERIOD_DAYS * ANALYSIS_SLICE_MULTIPLIER * ANALYSIS_BLOCK_COUNT
     print('Downloading', download_cnt, 'event files...')
 
@@ -80,5 +84,6 @@ def download_all():
 
   print('Download complete')
 
-if __name__ == "__main__":
+if __name__ == '__main__':
+  # Time to download approx 30 mins (i7-4771, 200 MB internet)
   download_all()

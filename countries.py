@@ -18,7 +18,7 @@ class IndexablePage(ABC):
     if self.source is None:
       raise Exception('empty source!')
     self.query = PyQuery(url=self.source)
-  
+
   @abstractmethod
   def countries(): pass
 
@@ -91,6 +91,6 @@ class HDIIndexes(IndexablePage):
 
     return list(filtered)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
   test = HDIIndexes()
   pprint(test.countries(top=5)[0])
