@@ -1,9 +1,11 @@
 import os
 import gdelt
 import itertools
+import subprocess
 import pandas as pd
 from concurrent.futures import thread
 from datetime import datetime, timezone
+from urllib import request
 
 # Number of days to analyse GDELT data from, constituting a slice of time for which analysis is
 # performed. Defaults to analysing blocks of 5 days in length.
@@ -24,6 +26,9 @@ ANALYSIS_BLOCK_COUNT = 2
 ANALYSIS_START_DATE = datetime.now(timezone.utc)
 
 def analysis_dates():
+  # Store the dates for future use as this method is called more than once
+  dates = []
+
   for block_index in range(ANALYSIS_BLOCK_COUNT):
     # Determine the day offset within the given block
     block_offset = pd.to_timedelta(ANALYSIS_FREQUENCY_DAYS * block_index, unit='D')
@@ -40,7 +45,9 @@ def analysis_dates():
       )
 
       # Return the index of the block so its correponding block of dates have some context
-      yield (slice_idx, block_index)
+      dates.append((slice_idx, block_index))
+
+  return dates
 
 # Event download parameters
 GDELT_FILE_PREFIX = 'gdelt_events_'
@@ -65,8 +72,27 @@ def download_date(date, gd):
 def download_all():
   # Stop polluting the working directory by creating an download folder
   if not os.path.exists(GDELT_OUTPUT_DIRECTORY):
+    # I have already downloaded a majority of this data and compressed it, so attempt to
+    # restore most of what is needed from the bucket (this will save about an hour)
+    CACHED_ARCHIVE = 'gdelt.tar.gz'
+    BUCKET_URL = f'https://storage.googleapis.com/data301-bucket-9n5z0ph0/{CACHED_ARCHIVE}'
+
+    # Place to store all the data, needs about 30 GB disk space
     os.mkdir(GDELT_OUTPUT_DIRECTORY)
 
+    try:
+      # Download the file, then just call tar to do the extraction (sorry Windows)
+      print('Downloading cached archive from', BUCKET_URL)
+      request.urlretrieve(BUCKET_URL, CACHED_ARCHIVE)
+      print('Extracting compressed archive...')
+      subprocess.run(['tar', 'zxf', CACHED_ARCHIVE, '-C', GDELT_OUTPUT_DIRECTORY])
+      print('Extraction complete!')
+      os.remove(CACHED_ARCHIVE)
+    except:
+      # Bucket won't exist forever :(
+      print('Failed downloading URL', BUCKET_URL)
+
+  # Initialise gdelt so its API can be queried
   gd = gdelt.gdelt(version=2)
 
   # Parallelize the download, as lots of event data is needed
@@ -85,5 +111,5 @@ def download_all():
   print('Download complete')
 
 if __name__ == '__main__':
-  # Time to download approx 2 hours – around 25 GB(!) when downloaded
+  # Raw time to download approx 2 hours – around 25 GB(!) when downloaded, I have cached ~360 files
   download_all()
