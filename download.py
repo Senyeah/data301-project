@@ -26,9 +26,6 @@ ANALYSIS_BLOCK_COUNT = 2
 ANALYSIS_START_DATE = datetime.now(timezone.utc)
 
 def analysis_dates():
-  # Store the dates for future use as this method is called more than once
-  dates = []
-
   for block_index in range(ANALYSIS_BLOCK_COUNT):
     # Determine the day offset within the given block
     block_offset = pd.to_timedelta(ANALYSIS_FREQUENCY_DAYS * block_index, unit='D')
@@ -45,9 +42,7 @@ def analysis_dates():
       )
 
       # Return the index of the block so its correponding block of dates have some context
-      dates.append((slice_idx, block_index))
-
-  return dates
+      yield (slice_idx, block_index)
 
 # Event download parameters
 GDELT_FILE_PREFIX = 'gdelt_events_'
@@ -56,12 +51,15 @@ GDELT_OUTPUT_DIRECTORY = 'gdelt_download'
 # How many GDELT event files to download in parallel
 GDELT_DOWNLOAD_WORKERS = os.cpu_count()
 
+def date_formatted(date):
+  return date.strftime('%Y%m%d')
+
 def download_date(date, gd):
-  formatted = date.strftime('%Y%m%d')
-  out_path = os.path.join(GDELT_OUTPUT_DIRECTORY, f'{GDELT_FILE_PREFIX}{formatted}.csv')
+  out_path = os.path.join(GDELT_OUTPUT_DIRECTORY, f'{GDELT_FILE_PREFIX}{date_formatted(date)}.csv')
 
   # Don't pointlessly re-download data
   if not os.path.exists(out_path):
+    print('Downloading data for date', formatted)
     try:
       # Download every 15 minute segment for every day, not just the latest (very slow...)
       data = gd.Search(formatted, table='events', coverage=True)
@@ -69,7 +67,7 @@ def download_date(date, gd):
     except Exception as e:
       print(f'Error downloading {formatted}, exception {e}')
 
-def download_all():
+def all_dates():
   # Stop polluting the working directory by creating an download folder
   if not os.path.exists(GDELT_OUTPUT_DIRECTORY):
     # I have already downloaded a majority of this data and compressed it, so attempt to
@@ -94,6 +92,7 @@ def download_all():
 
   # Initialise gdelt so its API can be queried
   gd = gdelt.gdelt(version=2)
+  downloaded_dates = []
 
   # Parallelize the download, as lots of event data is needed
   with thread.ThreadPoolExecutor(max_workers=GDELT_DOWNLOAD_WORKERS) as executor:
@@ -107,9 +106,11 @@ def download_all():
     # ...and then download the corresponding GDELT event data for that day
     for date in dates:
       executor.submit(download_date, date, gd)
+      downloaded_dates.append(date)
 
   print('Download complete')
+  return downloaded_dates
 
 if __name__ == '__main__':
   # Raw time to download approx 2 hours – around 25 GB(!) when downloaded, I have cached ~360 files
-  download_all()
+  all_dates()
