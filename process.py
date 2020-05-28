@@ -76,7 +76,7 @@ def slice_key(slice):
   value, plus the number of days per slice.'''
   return slice[-1]
 
-def slice_mean_prevalence(slices, grouped_prevalences):
+def mean_slice_prevalence(slices, grouped_prevalences):
   for slice in slices:
     slice_result = grouped_prevalences.filter(
       lambda row: row[0] in slice
@@ -107,7 +107,7 @@ def process():
     for date in dates
   ]
 
-  # Bizzarely, the event dates don't correspond to the dates of the file. This can make some results
+  # Bizarrely, the event dates don't correspond to the dates of the file. This can make some results
   # inaccurate. Also, the SQLDATE field is hilariously inaccurate – it has articles apparently from
   # 2010 in here?!
   events_rdd = sql.read.csv(files, header=True).rdd
@@ -120,7 +120,7 @@ def process():
   # Note: this is often not very useful, as the dates expected just aren't present within the set
   # of events for the days downloaded. That means if I load event data for say 2020-05-28, it is not
   # guaranteed to contain any (relevant) data for 2020-05-28, and in fact might contain relevant
-  # data for 2010-01-01. Neither of the date fields, SQLDATE or DATEADDED make any sort of sense,
+  # data for 2010-01-01. Neither of the date fields (SQLDATE or DATEADDED) make any sort of sense,
   # sometimes directly contradicting the timestamp of the linked article. This is absolutely stupid
   # and has driven me _beyond_ insane.
   #
@@ -128,12 +128,12 @@ def process():
   # present in event data for day Z), I can't test that for each run locally as it takes 20+ minutes
   # to process with every downloaded data set (54M records).
   event_prevalences = day_prevalence_vectors.cache()
-  slice_prevalences = reduce(merge_dicts, slice_mean_prevalence(slices, event_prevalences))
+  slice_prevalences = reduce(merge_dicts, mean_slice_prevalence(slices, event_prevalences))
 
   # It will be the case that prevalences for slice data requested did not end up being computed
   # since no rows matched the predicates. Therefore just log what keys didn't make it
   slice_dates = map(slice_key, slices)
-  casualties = set(slice_prevalences.keys()) ^ set(slice_dates)
+  casualties = set(slice_dates) - set(slice_prevalences.keys())
   print('Unable to calculate time slices', list(casualties), 'since no relevant data found :(')
 
   #from pprint import pprint
