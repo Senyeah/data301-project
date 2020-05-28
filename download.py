@@ -97,7 +97,8 @@ def all_dates():
   # Parallelize the download, as lots of event data is needed
   with thread.ThreadPoolExecutor(max_workers=GDELT_DOWNLOAD_WORKERS) as executor:
     # Pull every date out of the slice...
-    dates = (date for slice, _ in analysis_dates() for date in slice)
+    slices = [slice for slice, _ in analysis_dates()]
+    dates = (date for dates in slices for date in dates)
 
     # ...log how many are to be downloaded
     download_cnt = ANALYSIS_SLICE_PERIOD_DAYS * ANALYSIS_SLICE_MULTIPLIER * ANALYSIS_BLOCK_COUNT
@@ -106,11 +107,13 @@ def all_dates():
     # ...and then download the corresponding GDELT event data for that day
     for date in dates:
       executor.submit(download_date, date, gd)
-      downloaded_dates.append(date)
+      downloaded_dates.append(date_formatted(date))
 
   print('Download complete')
-  return downloaded_dates
+  # All dates flattened, along with every (formatted) date in each slice of dates
+  return downloaded_dates, [[date_formatted(date) for date in dates] for dates in slices]
 
 if __name__ == '__main__':
   # Raw time to download approx 2 hours – around 25 GB(!) when downloaded, I have cached ~360 files
-  all_dates()
+  dates, slices = all_dates()
+  print(dates, slices)
