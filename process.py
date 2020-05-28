@@ -71,11 +71,12 @@ def compute_prevalence_vectors(rdd):
     lambda row: (row[0][0], (row[0][1], row[1]))
   ).groupByKey().mapValues(dict)
 
-def slice_mean_prevalence(slices, grouped_prevalences):
-  # This will represent the beginning date of the slice, therefore representing a mean prevalence
-  # until this value, plus the number of days per slice.
-  slice_key = lambda slice: slice[-1]
+def slice_key(slice):
+  ''' Represent the beginning date of the slice, therefore representing a mean prevalence until this
+  value, plus the number of days per slice.'''
+  return slice[-1]
 
+def slice_mean_prevalence(slices, grouped_prevalences):
   for slice in slices:
     slice_result = grouped_prevalences.filter(
       lambda row: row[0] in slice
@@ -127,20 +128,13 @@ def process():
   # present in event data for day Z), I can't test that for each run locally as it takes 20+ minutes
   # to process with every downloaded data set (54M records).
   event_prevalences = day_prevalence_vectors.cache()
-  slice_prevalences = reduce(
-    merge_dicts, slice_mean_prevalence(slices, event_prevalences)
-  )
+  slice_prevalences = reduce(merge_dicts, slice_mean_prevalence(slices, event_prevalences))
 
   # It will be the case that prevalences for slice data requested did not end up being computed
   # since no rows matched the predicates. Therefore just log what keys didn't make it
-
-  from pprint import pprint
-
-  print('slices wanted')
-  pprint([s[-1] for s in slices])
-  print()
-  print('slices calculated:')
-  pprint(slice_prevalences)
+  slice_dates = map(slice_key, slices)
+  casualties = set(slice_prevalences.keys()) ^ set(slice_dates)
+  print('Unable to calculate time slices', list(casualties), 'since no relevant data found :(')
 
   #from pprint import pprint
   # print(list(out_dict))
