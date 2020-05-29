@@ -1,8 +1,9 @@
+#!/usr/bin/env python3
 import os
 import download
 import countries
 import pyspark
-import numpy
+import numpy as np
 import pandas as pd
 from functools import reduce
 from pyspark import SparkConf, SparkContext
@@ -20,7 +21,7 @@ def dbg(x):
 
 try:
   os.environ['PYSPARK_PYTHON'] = 'python3'
-  conf = SparkConf().setMaster('local[*]').set('spark.executor.memory', '1g')
+  conf = SparkConf().setMaster('local[*]').set('spark.executor.memory', '16g').set('spark.driver.memory', '16g')
   sc = SparkContext(conf=conf)
   sql = SQLContext(sc)
 except:
@@ -92,7 +93,7 @@ def mean_slice_prevalence(slices, grouped_prevalences):
       merge_dicts
     ).mapValues(
       # Now compute the mean of the prevalences for the given time slice
-      lambda country_vals: { country: numpy.mean(vals) for country, vals in country_vals.items() }
+      lambda country_vals: { country: np.mean(vals) for country, vals in country_vals.items() }
     ).collectAsMap()
 
     yield slice_result
@@ -141,6 +142,26 @@ def process():
   # Now create a dataframe to perform calculations
   prevalence_df = pd.DataFrame.from_dict(slice_prevalences, orient='index')
   pd.set_option('display.max_rows', prevalence_df.shape[0] + 1)
+
+  # Now perform similarity of slices, i.e. what slice is most similar to another.
+  # It would have been great to be able to check what countries are most similar to others,
+  # however differing vector sizes stops this from being possible (e.g. country A had 5 event
+  # occurrences slice A but country B only had 3, mismatched sizes stop comparison)
+  slices = sorted(prevalence_df.index.values)
+
+  # Function to compute cosine similarity of vectors, used to determine trends over analysis period
+  cos_similarity = lambda v1, v2: np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+
+  # Compute a pairwise analysis of the slice of interest
+  summary = pd.DataFrame(columns=['similarity'])
+
+  # Look at dates in consecutive sorted order, comparing the similarity of each pair
+  for first, second in zip(slices, slices[1:]):
+    summary.loc[f'{first}, {second}'] = cos_similarity(
+      prevalence_df.loc[first], prevalence_df.loc[second]
+    )
+
   print(prevalence_df)
+  print(summary)
 
 process()
