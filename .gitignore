@@ -2,3 +2,5 @@ __pycache__
 .vscode
 gdelt_download
 .DS_Store
+bin
+env

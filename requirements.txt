@@ -1,0 +1,5 @@
+gdelt>=0.1.10
+numpy>=1.18
+pandas>=1.*
+pyquery>=1.*
+pyspark>=2.*
