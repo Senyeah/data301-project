@@ -55,7 +55,8 @@ def date_formatted(date):
   return date.strftime('%Y%m%d')
 
 def download_date(date, gd):
-  out_path = os.path.join(GDELT_OUTPUT_DIRECTORY, f'{GDELT_FILE_PREFIX}{date_formatted(date)}.csv')
+  formatted = date_formatted(date)
+  out_path = os.path.join(GDELT_OUTPUT_DIRECTORY, f'{GDELT_FILE_PREFIX}{formatted}.csv')
 
   # Don't pointlessly re-download data
   if not os.path.exists(out_path):

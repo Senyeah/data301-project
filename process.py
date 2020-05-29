@@ -3,6 +3,7 @@ import download
 import countries
 import pyspark
 import numpy
+import pandas as pd
 from functools import reduce
 from pyspark import SparkConf, SparkContext
 from pyspark.sql import SQLContext
@@ -72,7 +73,7 @@ def compute_prevalence_vectors(rdd):
   ).groupByKey().mapValues(dict)
 
 def slice_key(slice):
-  ''' Represent the beginning date of the slice, therefore representing a mean prevalence until this
+  '''Represents the beginning date of the slice, therefore representing a mean prevalence until this
   value, plus the number of days per slice.'''
   return slice[-1]
 
@@ -136,9 +137,9 @@ def process():
   casualties = set(slice_dates) - set(slice_prevalences.keys())
   print('Unable to calculate time slices', list(casualties), 'since no relevant data found :(')
 
-  #from pprint import pprint
-  # print(list(out_dict))
-  # print(dates)
-  # print(slices)
+  # Now create a dataframe to perform calculations
+  prevalence_df = pd.DataFrame.from_dict(slice_prevalences, orient='index')
+  pandas.set_option('display.max_rows', prevalence_df.shape[0] + 1)
+  print(prevalence_df)
 
 process()
