@@ -135,7 +135,8 @@ def process():
   # since no rows matched the predicates. Therefore just log what keys didn't make it
   slice_dates = map(slice_key, slices)
   casualties = set(slice_dates) - set(slice_prevalences.keys())
-  print('Unable to calculate time slices', liwst(casualties), 'since no relevant data found :(')
+  if len(casualties) > 0:
+    print('Unable to calculate time slices', list(casualties), 'since no relevant data found :(')
 
   # Now create a dataframe to perform calculations
   prevalence_df = pd.DataFrame.from_dict(slice_prevalences, orient='index')
