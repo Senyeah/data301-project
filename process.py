@@ -21,11 +21,28 @@ except:
 # better ways at determining relevance here, this is the best way that wouldn't require
 # an insane amount of research and investigate to determine.
 MEETING_EVENT_CODES = ['036', '038', '043', '044']
-DEVELOPED_COUNTRIES = ['NZL', 'AUS', 'GBR', 'USA', 'CAN']
+ANALYSIS_COUNTRIES = ['NZL', 'AUS', 'GBR', 'USA', 'CAN']
+
+def nearest_date(haystack):
+  '''
+  Attempts to return the date closest to target inside haystack.
+  For example: `nearest_date(['2020-04-01', '2019-04-01'])('2020-05-01') == '2020-04-01'`.
+  This function is curried to allow easy invocation through `map`.
+  '''
+  def find(target):
+    dates = pd.Index(map(pd.to_datetime, haystack))
+    try:
+      index = dates.get_loc(pd.to_datetime(target), method='nearest')
+      return haystack[index]
+    except:
+      return target
+  return find
 
 def merge_dicts(a, b):
-  '''Merges key–values from both a and b. If the same value exists for a given key in both a
-  and b, then the resulting value is the two added.'''
+  '''
+  Merges key–values from both a and b. If the same value exists for a given key in both a
+  and b, then the resulting value is the two added.
+  '''
   merged = dict()
   for key in set([*a.keys(), *b.keys()]):
     if key in a and key in b:
@@ -36,12 +53,13 @@ def merge_dicts(a, b):
   return merged
 
 def compute_prevalence_vectors(rdd):
-  '''Computes prevalence vectors for a given country (that is, the proportion of 'meetings' out of
-  a total number of events), grouped by day'''
-
+  '''
+  Computes prevalence vectors for a given country (that is, the proportion of 'meetings' out of
+  a total number of events), grouped by day
+  '''
   return rdd.filter(
     # Only care about countries we've explicitly flagged for analysis
-    lambda row: row['Actor1CountryCode'] in DEVELOPED_COUNTRIES
+    lambda row: row['Actor1CountryCode'] in ANALYSIS_COUNTRIES
   ).map(
     # Store the country name, whether the event type matches what we need, and a 1 to allow
     # computation of the total number of rows in this RDD
@@ -64,8 +82,10 @@ def compute_prevalence_vectors(rdd):
   ).groupByKey().mapValues(dict)
 
 def slice_key(slice):
-  '''Represents the beginning date of the slice, therefore representing a mean prevalence until this
-  value, plus the number of days per slice.'''
+  '''
+  Represents the beginning date of the slice, therefore representing a mean prevalence until this
+  value, plus the number of days per slice.
+  '''
   return slice[-1]
 
 def mean_slice_prevalence(slices, grouped_prevalences):
@@ -133,6 +153,14 @@ def process():
   prevalence_df = pd.DataFrame.from_dict(slice_prevalences, orient='index')
   pd.set_option('display.max_rows', prevalence_df.shape[0] + 1)
 
+  # Pretty print headings and associated dataframes/results
+  def print_result(heading, df):
+    print(f'\n{heading}:')
+    print(df)
+
+  # Print entire result set (lots of rows if full timespan analysed)
+  print_result('Prevalences grouped by time slice', prevalence_df)
+
   # Now perform similarity of slices, i.e. what slice is most similar to another.
   # It would have been great to be able to check what countries are most similar to others,
   # however differing vector sizes stops this from being possible (e.g. country A had 5 event
@@ -142,16 +170,39 @@ def process():
   # Function to compute cosine similarity of vectors, used to determine trends over analysis period
   cos_similarity = lambda v1, v2: np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
 
-  # Compute a pairwise analysis of the slice of interest
-  summary = pd.DataFrame(columns=['similarity'])
-
-  # Look at dates in consecutive sorted order, comparing the similarity of each pair
-  for first, second in zip(slices, slices[1:]):
-    summary.loc[f'{first}, {second}'] = cos_similarity(
-      prevalence_df.loc[first], prevalence_df.loc[second]
+  # Now to actually answer the question. Let's determine the similarity in prevalence across
+  # the latest block and all other blocks, using the time frequency definitions inside download.py
+  nearest = nearest_date(slices)
+  block_comparison_dates = [
+    (
+      # Compare each block to the start to determine prevalence
+      nearest(download.date_formatted(download.ANALYSIS_START_DATE)),
+      block_start
     )
+    for block_start in map(nearest, download.ANALYSIS_BLOCK_DATES)
+  ]
 
-  print(prevalence_df)
-  print(summary)
+  # In addition, compute a pairwise analysis of all the other slices
+  # Look at dates in consecutive sorted order, comparing the similarity of each pair
+  slice_comparison_dates = list(zip(slices, slices[1:]))
 
-process()
+  # Summarise the data
+  summary_similarities = [
+    {
+      'from': first,
+      'to': second,
+      'similarity': cos_similarity(
+        prevalence_df.loc[first], prevalence_df.loc[second]
+      )
+    }
+    for first, second in (slice_comparison_dates + block_comparison_dates)
+  ]
+
+  # Finally print summary info
+  print_result(
+    f'Similarity between slices, each slice aggregating prevalence across {download.ANALYSIS_SLICE_PERIOD_DAYS} days',
+    pd.DataFrame(summary_similarities, columns=['from', 'to', 'similarity'])
+  )
+
+if __name__ == '__main__':
+  process()

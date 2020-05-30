@@ -25,6 +25,14 @@ ANALYSIS_BLOCK_COUNT = 2
 # The time from which to begin the analysis
 ANALYSIS_START_DATE = datetime.now(timezone.utc)
 
+# Dates of the start of each analysis block, used for final computation
+ANALYSIS_BLOCK_DATES = [
+  ANALYSIS_START_DATE - pd.to_timedelta(
+    ANALYSIS_FREQUENCY_DAYS * i, unit='D'
+  )
+  for i in range(ANALYSIS_BLOCK_COUNT)
+]
+
 def analysis_dates():
   for block_index in range(ANALYSIS_BLOCK_COUNT):
     # Determine the day offset within the given block
@@ -36,13 +44,11 @@ def analysis_dates():
       slice_offset = pd.to_timedelta(ANALYSIS_SLICE_PERIOD_DAYS * slice_index, unit='D')
 
       # Determine the dates within this block, given the slice and block offsets
-      slice_idx = pd.date_range(
+      # Return the index of the block so its correponding block of dates have some context
+      yield pd.date_range(
         ANALYSIS_START_DATE - slice_offset - block_offset,
         freq='-1D', periods=ANALYSIS_SLICE_PERIOD_DAYS
       )
-
-      # Return the index of the block so its correponding block of dates have some context
-      yield (slice_idx, block_index)
 
 # Event download parameters
 GDELT_FILE_PREFIX = 'gdelt_events_'
@@ -98,7 +104,7 @@ def all_dates():
   # Parallelize the download, as lots of event data is needed
   with thread.ThreadPoolExecutor(max_workers=GDELT_DOWNLOAD_WORKERS) as executor:
     # Pull every date out of the slice...
-    slices = [slice for slice, _ in analysis_dates()]
+    slices = [slice for slice in analysis_dates()]
     dates = (date for dates in slices for date in dates)
 
     # ...log how many are to be downloaded
