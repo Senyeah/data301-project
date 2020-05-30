@@ -9,19 +9,9 @@ from functools import reduce
 from pyspark import SparkConf, SparkContext
 from pyspark.sql import SQLContext
 
-def dbg(x):
-  """ A helper function to print debugging information on RDDs """
-  if isinstance(x, pyspark.RDD):
-    print([(t[0], list(t[1]) if
-            isinstance(t[1], pyspark.resultiterable.ResultIterable) else t[1])
-           if isinstance(t, tuple) else t
-           for t in x.take(100)])
-  else:
-    print(x)
-
 try:
   os.environ['PYSPARK_PYTHON'] = 'python3'
-  conf = SparkConf().setMaster('local[*]').set('spark.executor.memory', '16g').set('spark.driver.memory', '16g')
+  conf = SparkConf().setMaster('local[*]').set('spark.executor.memory', '1g')
   sc = SparkContext(conf=conf)
   sql = SQLContext(sc)
 except:
