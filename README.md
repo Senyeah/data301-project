@@ -41,19 +41,19 @@ I have observed memory usage [in excess of 130 GB](https://i.imgur.com/J8b21mu.p
 ## Terminology
 This project allows for analysis to occur across a variable period of dates. To facilitate this, several definitions allow for the modification what dates are analysed.
 
-#### [Time slice period](https://github.com/Senyeah/data301-project/blob/master/download.py#L12).
+#### [Time slice period](https://github.com/Senyeah/data301-project/blob/master/download.py#L12):
 The number of sequential days from which the mean prevalence is aggregated. For example, if the period is the default five days, then the mean prevalence for a given country across five day periods would be calculated.
 
-#### [Slice multiplier](https://github.com/Senyeah/data301-project/blob/master/download.py#L16).
+#### [Slice multiplier](https://github.com/Senyeah/data301-project/blob/master/download.py#L16):
 How many slices are analysed. The product of this multiplier and the slice period is known as the block size. The default slice multiplier is 36, meaning that (with a default slice period of 5 days) data across of 180 days per block is analysed.
 
-#### [Block count](https://github.com/Senyeah/data301-project/blob/master/download.py#L23).
+#### [Block count](https://github.com/Senyeah/data301-project/blob/master/download.py#L23):
 How many blocks overall are analysed. Defaults to 2 blocks, meaning that event data across 2 × 180 = 360 days is analysed.
 
-#### [Analysis frequency](https://github.com/Senyeah/data301-project/blob/master/download.py#L19).
+#### [Analysis frequency](https://github.com/Senyeah/data301-project/blob/master/download.py#L19):
 The number of days between the start of block N and the start of block N+1. If only one block is analysed then this has no bearing on the data set analysed. Defaults to analysing blocks every 365 days (i.e. a year-on-year comparison).
 
-#### [Analysis start date](https://github.com/Senyeah/data301-project/blob/master/download.py#L26).
+#### [Analysis start date](https://github.com/Senyeah/data301-project/blob/master/download.py#L26):
 The time at which all of the analysis blocks are relative to. This defaults to the current date in the UTC timezone, to help maximise the amount of GDELT data (as not much coverage may exist when, for example, using UTC+12).
 
 The default definitions for these constants can be changed from within [download.py](https://github.com/Senyeah/data301-project/blob/master/download.py#L10).
